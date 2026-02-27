@@ -52,6 +52,23 @@ object WearScreens {
 @Composable
 fun WearNavigation() {
     val navController = rememberSwipeDismissableNavController()
+    val navigateToBrowseCategory: (browseType: String, title: String) -> Unit = { browseType, title ->
+        when (browseType) {
+            "downloads" -> {
+                navController.navigate(WearScreens.DOWNLOADS)
+            }
+            "favorites", "all_songs" -> {
+                navController.navigate(
+                    WearScreens.songListRoute(browseType, "none", title)
+                )
+            }
+            else -> {
+                navController.navigate(
+                    WearScreens.libraryListRoute(browseType, title)
+                )
+            }
+        }
+    }
 
     SwipeDismissableNavHost(
         navController = navController,
@@ -59,9 +76,7 @@ fun WearNavigation() {
     ) {
         composable(WearScreens.PLAYER) {
             PlayerScreen(
-                onBrowseClick = {
-                    navController.navigate(WearScreens.BROWSE)
-                },
+                onBrowseCategoryClick = navigateToBrowseCategory,
                 onVolumeClick = {
                     navController.navigate(WearScreens.VOLUME) {
                         launchSingleTop = true
@@ -132,23 +147,7 @@ fun WearNavigation() {
 
         composable(WearScreens.BROWSE) {
             BrowseScreen(
-                onCategoryClick = { browseType, title ->
-                    when (browseType) {
-                        "downloads" -> {
-                            navController.navigate(WearScreens.DOWNLOADS)
-                        }
-                        "favorites", "all_songs" -> {
-                            navController.navigate(
-                                WearScreens.songListRoute(browseType, "none", title)
-                            )
-                        }
-                        else -> {
-                            navController.navigate(
-                                WearScreens.libraryListRoute(browseType, title)
-                            )
-                        }
-                    }
-                },
+                onCategoryClick = navigateToBrowseCategory,
             )
         }
 

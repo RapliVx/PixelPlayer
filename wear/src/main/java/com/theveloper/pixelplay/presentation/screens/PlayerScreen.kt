@@ -17,7 +17,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -33,13 +32,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
-import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
-import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -100,8 +97,6 @@ import com.theveloper.pixelplay.presentation.components.WearTopTimeText
 import com.theveloper.pixelplay.presentation.shapes.RoundedStarShape
 import com.theveloper.pixelplay.presentation.theme.LocalWearPalette
 import com.theveloper.pixelplay.presentation.theme.radialBackgroundBrush
-import com.theveloper.pixelplay.presentation.theme.surfaceContainerHighColor
-import com.theveloper.pixelplay.presentation.theme.surfaceContainerHighestColor
 import com.theveloper.pixelplay.presentation.viewmodel.WearPlayerViewModel
 import com.theveloper.pixelplay.shared.WearPlayerState
 import androidx.core.graphics.ColorUtils
@@ -114,11 +109,11 @@ import java.time.format.DateTimeFormatter
 
 @Composable
 fun PlayerScreen(
-    onBrowseClick: () -> Unit = {},
+    onBrowseCategoryClick: (browseType: String, title: String) -> Unit = { _, _ -> },
     onVolumeClick: () -> Unit = {},
     onOutputClick: () -> Unit = {},
     onMoreClick: () -> Unit = {},
-    onQueueClick: () -> Unit = onBrowseClick,
+    onQueueClick: () -> Unit = {},
     viewModel: WearPlayerViewModel = hiltViewModel(),
 ) {
     val state by viewModel.playerState.collectAsState()
@@ -136,7 +131,7 @@ fun PlayerScreen(
         onNext = viewModel::next,
         onPrevious = viewModel::previous,
         activeOutputRouteType = activeOutputRouteType,
-        onBrowseClick = onBrowseClick,
+        onBrowseCategoryClick = onBrowseCategoryClick,
         onVolumeClick = onVolumeClick,
         onOutputClick = onOutputClick,
         onMoreClick = onMoreClick,
@@ -154,7 +149,7 @@ private fun PlayerContent(
     onNext: () -> Unit,
     onPrevious: () -> Unit,
     activeOutputRouteType: String,
-    onBrowseClick: () -> Unit,
+    onBrowseCategoryClick: (browseType: String, title: String) -> Unit,
     onVolumeClick: () -> Unit,
     onOutputClick: () -> Unit,
     onMoreClick: () -> Unit,
@@ -207,11 +202,8 @@ private fun PlayerContent(
                 }
 
                 else -> {
-                    UtilityPage(
-                        enabled = true,
-                        onBrowseClick = onBrowseClick,
-                        onVolumeClick = onVolumeClick,
-                        onOutputClick = onOutputClick,
+                    BrowseScreen(
+                        onCategoryClick = onBrowseCategoryClick,
                     )
                 }
             }
@@ -230,7 +222,7 @@ private fun PlayerContent(
             )
         }
 
-        if (pagerState.currentPage != 0) {
+        if (pagerState.currentPage == 1) {
             WearTopTimeText(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
@@ -1320,103 +1312,6 @@ private fun BottomQueueShortcut(
             imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
             contentDescription = "Queue",
             modifier = Modifier.size(iconSize),
-        )
-    }
-}
-
-@Composable
-private fun UtilityPage(
-    enabled: Boolean,
-    onBrowseClick: () -> Unit,
-    onVolumeClick: () -> Unit,
-    onOutputClick: () -> Unit,
-) {
-    BoxWithConstraints(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black),
-    ) {
-        val maxSafeWidth = maxWidth - 10.dp
-        val middleWidth = (maxWidth * 0.84f).let { width ->
-            if (width > maxSafeWidth) maxSafeWidth else width
-        }
-        val sideWidth = (middleWidth * 0.82f).let { width ->
-            if (width < 128.dp) 128.dp else width
-        }
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = 30.dp, bottom = 22.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            UtilityPillButton(
-                icon = Icons.Rounded.PhoneAndroid,
-                label = "Device",
-                enabled = enabled,
-                width = sideWidth,
-                onClick = onOutputClick,
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            UtilityPillButton(
-                icon = Icons.Rounded.LibraryMusic,
-                label = "Library",
-                enabled = enabled,
-                width = middleWidth,
-                onClick = onBrowseClick,
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            UtilityPillButton(
-                icon = Icons.AutoMirrored.Rounded.VolumeUp,
-                label = "Volume",
-                enabled = enabled,
-                width = sideWidth,
-                onClick = onVolumeClick,
-            )
-        }
-    }
-}
-
-@Composable
-private fun UtilityPillButton(
-    icon: ImageVector,
-    label: String,
-    enabled: Boolean,
-    width: Dp,
-    onClick: () -> Unit,
-) {
-    val palette = LocalWearPalette.current
-    val container = if (enabled) palette.surfaceContainerHighColor() else palette.surfaceContainerHighestColor()
-    val tint = if (enabled) palette.chipContent else palette.textSecondary
-
-    Row(
-        modifier = Modifier
-            .width(width)
-            .height(46.dp)
-            .clip(RoundedCornerShape(25.dp))
-            .background(container)
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center,
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
-            tint = tint,
-            modifier = Modifier.size(22.dp),
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = label,
-            color = tint,
-            style = MaterialTheme.typography.button,
-            maxLines = 1,
         )
     }
 }
