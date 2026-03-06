@@ -182,10 +182,10 @@ class AccountsViewModel @Inject constructor(
                 add(
                     ExternalAccountUiModel(
                         service = ExternalServiceAccount.NAVIDROME,
-                        title = "Navidrome",
+                        title = "Subsonic",
                         accountLabel = navidromeRepository.username
                             ?.takeIf { it.isNotBlank() }
-                            ?: "Navidrome account connected",
+                            ?: "Subsonic account connected",
                         syncedContentLabel = formatCount(
                             count = navidromePlaylistCount,
                             singular = "synced playlist",
