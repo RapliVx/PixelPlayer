@@ -22,7 +22,9 @@ import androidx.activity.viewModels
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -156,6 +158,7 @@ class MainActivity : ComponentActivity() {
 
     private val playerViewModel: PlayerViewModel by viewModels()
     private val mainViewModel: MainViewModel by viewModels()
+    private var isUIVisiblyReady = false
     private var mediaControllerFuture: ListenableFuture<MediaController>? = null
     @Inject
     lateinit var userPreferencesRepository: UserPreferencesRepository // Inject here
@@ -188,9 +191,9 @@ class MainActivity : ComponentActivity() {
         }
         super.onCreate(savedInstanceState)
 
-        // Keep splash screen visible until DataStore has emitted the initial setup state,
-        // preventing the blank-screen flash between splash and first frame.
-        splashScreen.setKeepOnScreenCondition { mainViewModel.isSetupComplete.value == null }
+        // MD3 Optimization: Release Splash Screen immediately to render UI skeleton.
+        // Data loading is handled via optimistic UI and smooth transitions.
+        splashScreen.setKeepOnScreenCondition { false }
 
         // LEER SEÑAL DE BENCHMARK
         val isBenchmarkMode = intent.getBooleanExtra("is_benchmark", false)
@@ -253,36 +256,47 @@ class MainActivity : ComponentActivity() {
             PixelPlayTheme(
                 darkTheme = useDarkTheme
             ) {
-                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    if (showSetupScreen != null) {
-                        AnimatedContent(
-                            targetState = showSetupScreen,
-                            transitionSpec = {
-                                if (targetState == false) {
-                                    // Transition from Setup to Main App
-                                    scaleIn(initialScale = 0.8f, animationSpec = tween(400)) + fadeIn(animationSpec = tween(400)) togetherWith
-                                            slideOutHorizontally(targetOffsetX = { -it }, animationSpec = tween(400)) + fadeOut(animationSpec = tween(400))
-                                } else {
-                                    // Placeholder for other transitions, e.g., Main App to Setup
-                                    fadeIn(animationSpec = tween(400)) togetherWith fadeOut(animationSpec = tween(400))
-                                }
-                            },
-                            label = "SetupTransition"
-                        ) { targetState ->
-                            if (targetState == true) {
-                                SetupScreen(onSetupComplete = {
-                                    // Re-check permissions on completion.
-                                    // If permissions are still missing despite setup "completing" (e.g. user skipped or ignored?), 
-                                    // the LaunchedEffect(permissionsValid) above handles state, 
-                                    // but we explicitly update local state here too.
-                                    showSetupScreen = false
-                                })
+                var contentVisible by remember { mutableStateOf(false) }
+                val contentAlpha by animateFloatAsState(
+                    targetValue = if (contentVisible) 1f else 0f,
+                    animationSpec = tween(600, easing = LinearOutSlowInEasing),
+                    label = "AppContentAlpha"
+                )
+
+                LaunchedEffect(Unit) {
+                    // Delay slightly to ensure first frame layout is done behind Splash
+                    delay(100)
+                    contentVisible = true
+                }
+
+                Surface(
+                    modifier = Modifier.fillMaxSize().graphicsLayer { alpha = contentAlpha }, 
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    val isSetupReadyByValue = isSetupComplete ?: true
+                    AnimatedContent(
+                        targetState = isSetupReadyByValue,
+                        transitionSpec = {
+                            if (targetState == false) {
+                                // Transition to Setup
+                                fadeIn(animationSpec = tween(400)) togetherWith fadeOut(animationSpec = tween(400))
                             } else {
-                                MainAppContent(playerViewModel, mainViewModel)
+                                // Transition from Setup to Main App
+                                scaleIn(initialScale = 0.95f, animationSpec = tween(450)) + fadeIn(animationSpec = tween(450)) togetherWith
+                                        slideOutHorizontally(targetOffsetX = { -it }, animationSpec = tween(450)) + fadeOut(animationSpec = tween(450))
                             }
+                        },
+                        label = "SetupTransition"
+                    ) { targetIsSetupComplete ->
+                        if (targetIsSetupComplete == false) {
+                            SetupScreen(onSetupComplete = {
+                                // Manual override or repository update logic
+                            })
+                        } else {
+                            MainAppContent(playerViewModel, mainViewModel)
                         }
                     }
-                    
+
                     // Show crash report dialog if needed
                     if (showCrashReportDialog && crashLogData != null) {
                         CrashReportDialog(
@@ -580,6 +594,7 @@ class MainActivity : ComponentActivity() {
         }
 
         val navBarStyle by playerViewModel.navBarStyle.collectAsStateWithLifecycle()
+        val navBarCornerRadius by playerViewModel.navBarCornerRadius.collectAsStateWithLifecycle()
         val hapticsEnabled by playerViewModel.hapticsEnabled.collectAsStateWithLifecycle()
         val rootView = LocalView.current
         val platformHapticFeedback = LocalHapticFeedback.current
@@ -665,7 +680,6 @@ class MainActivity : ComponentActivity() {
                                 .distinctUntilChanged()
                         }.collectAsStateWithLifecycle(initialValue = null)
                         val showPlayerContentArea = currentSongId != null
-                        val navBarCornerRadius by playerViewModel.navBarCornerRadius.collectAsStateWithLifecycle()
                         val navBarElevation = 3.dp
 
                         val playerContentActualBottomRadiusTargetValue by remember(
@@ -702,8 +716,14 @@ class MainActivity : ComponentActivity() {
                         val navBarHideFraction = if (showPlayerContentArea) playerContentExpansionFraction else 0f
                         val navBarHideFractionClamped = navBarHideFraction.coerceIn(0f, 1f)
 
-                        val actualShape = remember(playerContentActualBottomRadius, showPlayerContentArea, navBarStyle, navBarCornerRadius) {
-                            val bottomRadius = if (navBarStyle == NavBarStyle.FULL_WIDTH) 0.dp else navBarCornerRadius.dp
+                        val animatedNavBarCornerRadius by animateDpAsState(
+                            targetValue = navBarCornerRadius.dp,
+                            animationSpec = tween(400),
+                            label = "NavBarCornerRadius"
+                        )
+
+                        val actualShape = remember(playerContentActualBottomRadius, showPlayerContentArea, navBarStyle, animatedNavBarCornerRadius) {
+                            val bottomRadius = if (navBarStyle == NavBarStyle.FULL_WIDTH) 0.dp else animatedNavBarCornerRadius
                             AbsoluteSmoothCornerShape(
                                 cornerRadiusTL = playerContentActualBottomRadius,
                                 smoothnessAsPercentBR = 60,
@@ -716,7 +736,12 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        val bottomBarPadding = if (navBarStyle == NavBarStyle.FULL_WIDTH) 0.dp else systemNavBarInset
+                        val animatedBottomBarPadding by animateDpAsState(
+                            targetValue = if (navBarStyle == NavBarStyle.FULL_WIDTH) 0.dp else systemNavBarInset,
+                            animationSpec = tween(400),
+                            label = "BottomBarPadding"
+                        )
+                        val bottomBarPadding = animatedBottomBarPadding
 
                         var componentHeightPx by remember { mutableStateOf(0) }
                         val density = LocalDensity.current
