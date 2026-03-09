@@ -1472,7 +1472,7 @@ constructor(
         if (keyNames.isEmpty()) return
         dataStore.edit { preferences ->
             preferences.asMap().keys
-                .filter { key -> key.name in keyNames }
+                .filter { key -> key.name in keyNames && key.name !in backupExcludedKeyNames }
                 .forEach { key ->
                     @Suppress("UNCHECKED_CAST")
                     preferences.remove(key as Preferences.Key<Any>)
@@ -1481,9 +1481,10 @@ constructor(
     }
 
     suspend fun clearPreferencesExceptKeys(excludedKeyNames: Set<String>) {
+        val protectedKeyNames = excludedKeyNames + backupExcludedKeyNames
         dataStore.edit { preferences ->
             preferences.asMap().keys
-                .filterNot { key -> key.name in excludedKeyNames }
+                .filterNot { key -> key.name in protectedKeyNames }
                 .forEach { key ->
                     @Suppress("UNCHECKED_CAST")
                     preferences.remove(key as Preferences.Key<Any>)
@@ -1548,7 +1549,12 @@ constructor(
     ) {
         dataStore.edit { preferences ->
             if (clearExisting) {
-                preferences.clear()
+                preferences.asMap().keys
+                    .filterNot { key -> key.name in backupExcludedKeyNames }
+                    .forEach { key ->
+                        @Suppress("UNCHECKED_CAST")
+                        preferences.remove(key as Preferences.Key<Any>)
+                    }
             }
 
             entries.forEach { entry ->
