@@ -274,4 +274,39 @@ class LyricsUtilsTest {
         assertEquals(25_390, line25.time)
         assertEquals("一个人舞动华尔兹", line25.translation)
     }
+
+    @Test
+    fun parseLyrics_wordByWord_colonSubSecondSeparator_supported() {
+        val lrc = "[00:10:00]<00:10:00>Hello <00:10:50>world"
+
+        val lyrics = LyricsUtils.parseLyrics(lrc)
+        val synced = requireNotNull(lyrics.synced)
+        val words = requireNotNull(synced.single().words)
+
+        assertEquals("Hello world", synced.single().line)
+        assertEquals(listOf("Hello ", "world"), words.map { it.word })
+        assertEquals(listOf(10_000, 10_500), words.map { it.time })
+    }
+
+    @Test
+    fun syncedToLrcString_preservesPairedTranslations() {
+        val lrc = LyricsUtils.syncedToLrcString(
+            listOf(
+                com.theveloper.pixelplay.data.model.SyncedLine(
+                    time = 10_000,
+                    line = "Hello world",
+                    translation = "你好世界"
+                ),
+                com.theveloper.pixelplay.data.model.SyncedLine(
+                    time = 20_000,
+                    line = "Goodbye"
+                )
+            )
+        )
+
+        assertEquals(
+            "[00:10.00]Hello world\n[00:10.00]你好世界\n[00:20.00]Goodbye",
+            lrc
+        )
+    }
 }
