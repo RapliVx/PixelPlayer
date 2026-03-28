@@ -1090,6 +1090,7 @@ fun LyricLineRow(
     immersiveMode: Boolean = false,
     lyricsAlignment: String = "left",
     showTranslation: Boolean = true,
+    showRomanization: Boolean = true,
     accentColor: Color,
     style: TextStyle,
     modifier: Modifier = Modifier,
@@ -1114,6 +1115,7 @@ fun LyricLineRow(
         ) else tween(durationMillis = 250),
         label = "lineColor"
     )
+
     // Animated mode: fisheye scaling + alpha based on distance from current line
     val targetScale = if (useAnimatedLyrics) when (distanceFromCurrent) {
         0 -> if (immersiveMode) 1.02f else 1.1f; 1 -> 0.95f; else -> 0.85f
@@ -1189,28 +1191,32 @@ fun LyricLineRow(
             .then(if (blurRadius > 0.dp) Modifier.blur(blurRadius) else Modifier)
     } else baseModifier
 
-    // Roman Translate Logic
+    // Roman or Translate Logic
     val translationText = line.translation
-    val translationStyle = remember(style) {
+    val romanizationText = line.romanization
+
+    val secondaryStyle = remember(style) {
         style.copy(
             fontSize = (style.fontSize.value * 0.75f).sp,
             fontWeight = FontWeight.Normal
         )
     }
-    val translationColor = lineColor.copy(alpha = lineColor.alpha * 0.7f)
+
+    val romanizationColor = lineColor.copy(alpha = lineColor.alpha * 0.85f)
+    val translationColor = lineColor.copy(alpha = lineColor.alpha * 0.55f)
 
     val horizontalAlignment = when (lyricsAlignment) {
         "center" -> Alignment.CenterHorizontally
         "right" -> Alignment.End
         else -> Alignment.Start
     }
-    
+
     val textAlign = when (lyricsAlignment) {
         "center" -> TextAlign.Center
         "right" -> TextAlign.Right
         else -> TextAlign.Left
     }
-    
+
     val boxAlignment = when (lyricsAlignment) {
         "center" -> Alignment.TopCenter
         "right" -> Alignment.TopEnd
@@ -1242,13 +1248,24 @@ fun LyricLineRow(
                     textAlign = textAlign
                 )
             }
+
+            if (showRomanization && !romanizationText.isNullOrBlank()) {
+                Text(
+                    text = romanizationText,
+                    style = secondaryStyle,
+                    color = romanizationColor,
+                    textAlign = textAlign,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+
             if (showTranslation && !translationText.isNullOrBlank()) {
                 Text(
                     text = translationText,
-                    style = translationStyle,
+                    style = secondaryStyle,
                     color = translationColor,
                     textAlign = textAlign,
-                    modifier = Modifier.padding(top = 4.dp)
+                    modifier = Modifier.padding(top = 2.dp)
                 )
             }
         }
@@ -1292,13 +1309,24 @@ fun LyricLineRow(
                     }
                 }
             }
+
+            if (showRomanization && !romanizationText.isNullOrBlank()) {
+                Text(
+                    text = romanizationText,
+                    style = secondaryStyle,
+                    color = romanizationColor,
+                    textAlign = textAlign,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+
             if (showTranslation && !translationText.isNullOrBlank()) {
                 Text(
                     text = translationText,
-                    style = translationStyle,
+                    style = secondaryStyle,
                     color = translationColor,
                     textAlign = textAlign,
-                    modifier = Modifier.padding(top = 4.dp)
+                    modifier = Modifier.padding(top = 2.dp)
                 )
             }
         }
